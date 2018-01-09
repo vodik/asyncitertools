@@ -108,8 +108,9 @@ async def distinct_until_changed(source: AsyncIterator[T1]) -> AsyncIterator[T1]
     Example:
     xs = distinct_until_changed(source)
     """
-    last_msg = await source.__anext__()
-    yield last_msg
+    async for last_msg in source:
+        yield last_msg
+        break
 
     async for msg in source:
         if msg != last_msg:
