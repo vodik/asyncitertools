@@ -19,9 +19,19 @@ async def map(mapper: Callable[[T1], Union[T2, Awaitable[T2]]],
     async for msg in source:
         result = mapper(msg)
         if inspect.isawaitable(result):
-            yield await result
-        elif result:
-            yield result
+            result = await result
+        yield result
+
+
+async def flat_map(mapper,
+                   source: AsyncIterator[T1]) -> AsyncIterator[T2]:
+    async for msg in source:
+        result = mapper(msg)
+        if inspect.isawaitable(result):
+            result = await result
+
+        async for submsg in result:
+            yield submsg
 
 
 async def filter(predicate: Callable[[T1], Union[bool, Awaitable[bool]]],
