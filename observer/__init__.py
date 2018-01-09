@@ -54,6 +54,8 @@ class Observer:
             self._busy.set_result(None)
 
         try:
+            import datetime
+            print("!!!", datetime.datetime.now())
             return await waiter
         except asyncio.CancelledError:
             raise StopAsyncIteration

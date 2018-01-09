@@ -47,10 +47,13 @@ async def delay(seconds: float,
         stream.
     """
     first_msg = await source.__anext__()
+    print("SLEEPING", seconds)
     await asyncio.sleep(seconds)
     yield first_msg
 
     async for msg in source:
+        print("SLEEPING", seconds)
+        await asyncio.sleep(seconds)
         yield msg
 
 
