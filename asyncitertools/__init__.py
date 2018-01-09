@@ -1,4 +1,5 @@
 import asyncio
+import collections
 import inspect
 from typing import Any, AsyncIterator, Awaitable, Callable, TypeVar, Union
 
@@ -56,15 +57,29 @@ async def delay(seconds: float,
     seconds -- Relative time in seconds by which to shift the source
         stream.
     """
-    first_msg = await source.__anext__()
-    print("SLEEPING", seconds)
-    await asyncio.sleep(seconds)
-    yield first_msg
+    queue = collections.deque()
+    event = asyncio.Event()
 
-    async for msg in source:
-        print("SLEEPING", seconds)
-        await asyncio.sleep(seconds)
-        yield msg
+    if seconds == 0:
+        async for msg in source:
+            yield msg
+
+    async def _consumer():
+        async for msg in source:
+            event.set()
+            queue.append(msg)
+        event.set()
+
+    consumer = asyncio.ensure_future(_consumer())
+    try:
+        while not consumer.done():
+            await event.wait()
+            await asyncio.sleep(seconds)
+            while queue:
+                yield queue.popleft()
+            event.clear()
+    finally:
+        consumer.cancel()
 
 
 async def debounce(seconds: float,
@@ -108,14 +123,15 @@ async def distinct_until_changed(source: AsyncIterator[T1]) -> AsyncIterator[T1]
     Example:
     xs = distinct_until_changed(source)
     """
-    async for last_msg in source:
-        yield last_msg
-        break
+    last_msg = object()  # sentinal
 
     async for msg in source:
-        if msg != last_msg:
-            last_msg = msg
-            yield msg
+        if msg == last_msg:
+            await asyncio.sleep(0)
+            continue
+
+        last_msg = msg
+        yield msg
 
 
 async def starts_with(value: T1,
@@ -136,7 +152,6 @@ async def starts_with(value: T1,
 async def take(count: int,
                source: AsyncIterator[T1]) -> AsyncIterator[T1]:
     """Returns a specified number of contiguous elements from an iterator."""
-
     if count <= 0:
         return
 
