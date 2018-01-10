@@ -1,4 +1,5 @@
 import asyncio
+import collections
 import inspect
 from typing import Any, AsyncIterator, Awaitable, Callable, TypeVar, Union
 
@@ -56,12 +57,37 @@ async def delay(seconds: float,
     seconds -- Relative time in seconds by which to shift the source
         stream.
     """
-    first_msg = await source.__anext__()
-    await asyncio.sleep(seconds)
-    yield first_msg
+    if seconds <= 0:
+        async for msg in source:
+            yield msg
+        return
 
-    async for msg in source:
-        yield msg
+    import observer
+    ob = observer.Observer()
+
+    async def _consumer():
+        try:
+            tasks = collections.deque()
+
+            async def _delay(msg):
+                await asyncio.sleep(seconds)
+                await ob.send(msg)
+
+            async for msg in source:
+                future = asyncio.ensure_future(_delay(msg))
+                if not future.done():
+                    tasks.append(future)
+                    future.add_done_callback(tasks.remove)
+        finally:
+            await asyncio.gather(*tasks)
+            ob.stop()
+
+    consumer = asyncio.ensure_future(_consumer())
+    try:
+        async for msg in ob:
+            yield msg
+    finally:
+        consumer.cancel()
 
 
 async def debounce(seconds: float,
