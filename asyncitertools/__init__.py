@@ -1,5 +1,4 @@
 import asyncio
-import collections
 import inspect
 from typing import Any, AsyncIterator, Awaitable, Callable, TypeVar, Union
 
@@ -10,8 +9,8 @@ T1 = TypeVar("T1")
 T2 = TypeVar("T2")
 
 
-async def map(mapper: Callable[[T1], Union[T2, Awaitable[T2]]],
-              source: AsyncIterator[T1]) -> AsyncIterator[T2]:
+def map(mapper: Callable[[T1], Union[T2, Awaitable[T2]]],
+        source: AsyncIterator[T1]) -> AsyncIterator[T2]:
     """Make an async iterator that maps values.
 
     xs = map(lambda value: value * value, source)
@@ -19,26 +18,47 @@ async def map(mapper: Callable[[T1], Union[T2, Awaitable[T2]]],
     Keyword arguments:
     mapper: A transform function to apply to each source item.
     """
-    async for msg in source:
-        result = mapper(msg)
-        if inspect.isawaitable(result):
-            result = await result
-        yield result
+    async def closure(obv):
+        async def mapped_send(msg):
+            result = mapper(msg)
+            if inspect.isawaitable(result):
+                result = await result
+
+            await obv.send(result)
+
+        async for msg in source:
+            asyncio.ensure_future(mapped_send(msg))
+
+    return observer.subscribe(closure)
 
 
 async def flat_map(mapper,
                    source: AsyncIterator[T1]) -> AsyncIterator[T2]:
-    async for msg in source:
-        result = mapper(msg)
-        if inspect.isawaitable(result):
-            result = await result
+    """Make an async iterator that maps values.
 
-        async for submsg in result:
-            yield submsg
+    xs = flat_map(lambda value: value * value, source)
+
+    Keyword arguments:
+    mapper: A transform function to apply to each source item.
+    """
+    async def closure(obv):
+        async def mapped_send(msg):
+            result = mapper(msg)
+            if inspect.isawaitable(result):
+                result = await result
+
+            async for submsg in result:
+                await obv.send(submsg)
+
+        async for msg in source:
+            asyncio.ensure_future(mapped_send(msg))
+
+    return observer.subscribe(closure)
 
 
 async def filter(predicate: Callable[[T1], Union[bool, Awaitable[bool]]],
                  source: AsyncIterator[T1]) -> AsyncIterator[T1]:
+    """Filters the elements of the sequence based on a predicate."""
     async for msg in source:
         result = predicate(msg)
         if inspect.isawaitable(result) and await result:
