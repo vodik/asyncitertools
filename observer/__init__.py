@@ -82,22 +82,6 @@ class Observer:
         return sub
 
 
-def from_iterator(iterable):
-    observer = Observer()
-
-    async def closure():
-        try:
-            for msg in iterable:
-                await observer.send(msg)
-        except Exception as exc:
-            observer.set_exception(exc)
-        else:
-            await observer.stop()
-
-    asyncio.ensure_future(closure())
-    return observer
-
-
 def consume(generator):
     observer = Observer()
 
