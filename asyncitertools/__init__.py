@@ -179,3 +179,8 @@ async def subscribe(callback: Callable[[T1], Awaitable[Any]],
                     source: AsyncIterator[T1]) -> None:
     async for msg in source:
         await callback(msg)
+
+
+async def from_iterator(iterator):
+    for msg in iterator:
+        yield msg
