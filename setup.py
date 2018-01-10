@@ -11,7 +11,7 @@ def read(fname):
 
 
 setup(
-    name='aiorx',
+    name='asyncitertools',
     version='0.0.1',
     author='Simon Gomizelj',
     author_email='simon@vodik.xyz',
