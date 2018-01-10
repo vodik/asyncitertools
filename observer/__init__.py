@@ -1,95 +1,84 @@
 import asyncio
-import collections
-import weakref
 
 
+# Borrowed from aioreactive
 class Subscription:
-    def __init__(self, observer):
-        self._observer = observer
-        self._loop = observer._loop
+    def __init__(self):
+        self._push = asyncio.Future()
+        self._pull = asyncio.Future()
+        self._awaiters = []
+        self._busy = False
 
-        self._busy = self._loop.create_future()
-        self._waiters = collections.deque()
+    async def send(self, value):
+        await self._serialize_access()
+        self._push.set_result(value)
+        await self._wait_for_pull()
 
-    async def _send(self, msg):
-        await self._busy
-        self._busy = self._loop.create_future()
+    async def set_exception(self, err):
+        await self._serialize_access()
+        self._push.set_exception(err)
+        await self._wait_for_pull()
 
-        while self._waiters:
-            waiter = self._waiters.popleft()
-            if not waiter.done():
-                waiter.set_result(msg)
+    async def stop(self):
+        await self._serialize_access()
+        self._push.set_exception(StopAsyncIteration)
+        await self._wait_for_pull()
 
-    def _cancel(self):
-        while self._waiters:
-            waiter = self._waiters.popleft()
-            if not waiter.done():
-                waiter.cancel()
+    async def _wait_for_pull(self):
+        await self._pull
+        self._pull = asyncio.Future()
+        self._busy = False
+
+    async def _serialize_access(self):
+        while self._busy:
+            future = asyncio.Future()
+            self._awaiters.append(future)
+            await future
+            self._awaiters.remove(future)
+
+        self._busy = True
+
+    async def wait_for_push(self):
+        value = await self._push
+        self._push = asyncio.Future()
+        self._pull.set_result(True)
+
+        for awaiter in self._awaiters[:1]:
+            awaiter.set_result(True)
+        return value
+
+    async def __aiter__(self):
+        return self
 
     async def __anext__(self):
-        if self._observer.done():
-            raise StopAsyncIteration
-
-        waiter = self._loop.create_future()
-        self._waiters.append(waiter)
-        if not self._busy.done():
-            self._busy.set_result(None)
-
-        try:
-            return await waiter
-        except asyncio.CancelledError:
-            raise StopAsyncIteration
+        return await self.wait_for_push()
 
 
 class Observer:
     def __init__(self, *, loop=None):
-        if loop is None:
-            self._loop = asyncio.get_event_loop()
-        else:
-            self._loop = loop
-
-        self._result = self._loop.create_future()
-        self._subscriptions = collections.deque()
-        self._ready = asyncio.Event()
+        self._push = asyncio.Future()
+        self._subscriptions = []
 
     async def send(self, msg):
-        assert not self._result.done()
-
-        if not any(sub() for sub in self._subscriptions):
-            self._ready.clear()
-            await self._ready.wait()
-
-        for task in [sub()._send(msg) for sub in self._subscriptions if sub()]:
-            await task
-        # await asyncio.gather(*tasks)
-
-    async def feed(self, generator):
-        try:
-            async for msg in generator:
-                await self.send(msg)
-        except Exception as exc:
-            self.set_exception(exc)
-
-    def stop(self):
-        self._result.set_result(None)
         for sub in self._subscriptions:
-            if not sub():
-                continue
-            sub()._cancel()
+            await sub.send(msg)
+
+    async def stop(self):
+        self._push.set_result(None)
+        for sub in self._subscriptions:
+            await sub.stop()
 
     def set_exception(self, exc):
-        self._result.set_exception(exc)
-
-    def done(self):
-        return self._result.done()
+        self._push.set_result(exc)
+        for sub in self._subscriptions:
+            sub.set_exception(exc)
 
     def __await__(self):
-        return self._result.__await__()
+        return self._push.__await__()
 
     async def __aiter__(self):
-        sub = Subscription(self)
-        self._subscriptions.append(weakref.ref(sub))
-        self._ready.set()
+        sub = Subscription()
+        self._subscriptions.append(sub)
         return sub
 
 
@@ -98,18 +87,18 @@ def consume(generator):
 
     async def closure():
         await observer.feed(generator)
-        observer.stop()
+        await observer.stop()
 
     asyncio.ensure_future(closure())
     return observer
 
 
 def subscribe(function):
-    observer = Observer()
+    subscribe = Subscription()
 
     async def closure():
-        await function(observer)
-        observer.stop()
+        await function(subscribe)
+        await subscribe.stop()
 
     asyncio.ensure_future(closure())
-    return observer
+    return subscribe
