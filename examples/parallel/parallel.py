@@ -8,9 +8,8 @@ import asyncitertools as op
 
 def long_running(value):
     thread_name = current_thread().name
-    print("Long running ({}) on thread {}".format(value, thread_name))
+    print("Processing {} on thread {}".format(value, thread_name))
     time.sleep(3)
-    print("Long running, done ({}) on thread {}".format(value, thread_name))
     return value
 
 

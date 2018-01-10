@@ -43,8 +43,14 @@ def flat_map(mapper: Callable[[T1], Union[T2, Awaitable[T2]]],
 
             await obv.send(result)
 
+        tasks = set()
         async for msg in source:
-            asyncio.ensure_future(mapped_send(msg))
+            future = asyncio.ensure_future(mapped_send(msg))
+            if not future.done():
+                tasks.add(future)
+                future.add_done_callback(tasks.remove)
+
+        await asyncio.gather(*tasks)
 
     return observer.subscribe(closure)
 
@@ -81,8 +87,14 @@ def delay(seconds: float, source: AsyncIterator[T1]) -> AsyncIterator[T1]:
             await asyncio.sleep(seconds)
             await obv.send(msg)
 
+        tasks = set()
         async for msg in source:
-            asyncio.ensure_future(delayed_send(msg))
+            future = asyncio.ensure_future(delayed_send(msg))
+            if not future.done():
+                tasks.add(future)
+                future.add_done_callback(tasks.remove)
+
+        await asyncio.gather(*tasks)
 
     return observer.subscribe(closure)
 
