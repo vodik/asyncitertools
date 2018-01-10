@@ -64,19 +64,12 @@ def delay(seconds: float, source: AsyncIterator[T1]) -> AsyncIterator[T1]:
                 await obv.send(msg)
             return
 
-        tasks = collections.deque()
-        try:
-            async def _delay(msg):
-                await asyncio.sleep(seconds)
-                await obv.send(msg)
+        async def delayed_send(msg):
+            await asyncio.sleep(seconds)
+            await obv.send(msg)
 
-            async for msg in source:
-                future = asyncio.ensure_future(_delay(msg))
-                if not future.done():
-                    tasks.append(future)
-                    future.add_done_callback(tasks.remove)
-        finally:
-            await asyncio.gather(*tasks)
+        async for msg in source:
+            asyncio.ensure_future(delayed_send(msg))
 
     return observer.subscribe(closure)
 
