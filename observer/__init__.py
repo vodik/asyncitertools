@@ -126,4 +126,4 @@ def subscribe(function):
             await subscription.stop()
 
     asyncio.ensure_future(closure())
-    return subscribe
+    return subscription
