@@ -18,7 +18,7 @@ async def map(mapper: Callable[[T1], Union[T2, Awaitable[T2]]],
     Keyword arguments:
     mapper: A transform function to apply to each source item.
     """
-    async for msg in stream:
+    async for msg in source:
         result = mapper(msg)
         if inspect.isawaitable(result):
             result = await result
