@@ -10,7 +10,7 @@ async def position_label(label, idx, events):
         label.place(x=ev.x + idx * 10 + 15, y=ev.y)
 
 
-async def main(loop) -> None:
+async def main(loop):
     mousemoves = observer.Observer()
 
     root = Tk()

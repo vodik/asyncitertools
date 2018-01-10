@@ -14,12 +14,11 @@ def long_running(value):
     return value
 
 
-async def main(loop) -> None:
-    stream = observer.from_iterator([1, 2, 3, 4, 5])
+async def main(loop):
+    async def mapper(value):
+        return await loop.run_in_executor(None, long_running, value)
 
-    def mapper(value):
-        return loop.run_in_executor(None, long_running, value)
-
+    stream = op.from_iterator(range(40))
     async for x in op.map(mapper, stream):
         print(x)
 
