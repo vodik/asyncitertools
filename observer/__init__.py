@@ -68,7 +68,7 @@ class Observer:
             async for msg in generator:
                 await self.send(msg)
         except Exception as exc:
-            generator.set_exception(exc)
+            self.set_exception(exc)
 
     def stop(self):
         self._result.set_result(None)
@@ -94,10 +94,22 @@ class Observer:
 
 
 def consume(generator):
-    async def _inner():
+    observer = Observer()
+
+    async def closure():
         await observer.feed(generator)
         observer.stop()
 
+    asyncio.ensure_future(closure())
+    return observer
+
+
+def subscribe(function):
     observer = Observer()
-    asyncio.ensure_future(_inner())
+
+    async def closure():
+        await function(observer)
+        observer.stop()
+
+    asyncio.ensure_future(closure())
     return observer

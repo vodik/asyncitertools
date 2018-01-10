@@ -3,6 +3,8 @@ import collections
 import inspect
 from typing import Any, AsyncIterator, Awaitable, Callable, TypeVar, Union
 
+import observer
+
 
 T1 = TypeVar("T1")
 T2 = TypeVar("T2")
@@ -45,8 +47,7 @@ async def filter(predicate: Callable[[T1], Union[bool, Awaitable[bool]]],
             yield msg
 
 
-async def delay(seconds: float,
-                source: AsyncIterator[T1]) -> AsyncIterator[T1]:
+def delay(seconds: float, source: AsyncIterator[T1]) -> AsyncIterator[T1]:
     """Time shift an async iterator.
 
     The relative time intervals between the values are preserved.
@@ -57,21 +58,17 @@ async def delay(seconds: float,
     seconds -- Relative time in seconds by which to shift the source
         stream.
     """
-    if seconds <= 0:
-        async for msg in source:
-            yield msg
-        return
+    async def closure(obv):
+        if seconds <= 0:
+            async for msg in source:
+                await obv.send(msg)
+            return
 
-    import observer
-    ob = observer.Observer()
-
-    async def _consumer():
+        tasks = collections.deque()
         try:
-            tasks = collections.deque()
-
             async def _delay(msg):
                 await asyncio.sleep(seconds)
-                await ob.send(msg)
+                await obv.send(msg)
 
             async for msg in source:
                 future = asyncio.ensure_future(_delay(msg))
@@ -80,14 +77,8 @@ async def delay(seconds: float,
                     future.add_done_callback(tasks.remove)
         finally:
             await asyncio.gather(*tasks)
-            ob.stop()
 
-    consumer = asyncio.ensure_future(_consumer())
-    try:
-        async for msg in ob:
-            yield msg
-    finally:
-        consumer.cancel()
+    return observer.subscribe(closure)
 
 
 async def debounce(seconds: float,
