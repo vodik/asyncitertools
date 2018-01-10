@@ -72,7 +72,10 @@ async def delay(seconds: float,
             await ob.send(msg)
 
         async for msg in source:
-            tasks.append(asyncio.ensure_future(_delay(msg)))
+            future = asyncio.ensure_future(_delay(msg))
+            tasks.append(future)
+            future.add_done_callback(lambda fut: tasks.remove(future))
+
         await asyncio.gather(*tasks)
         ob.stop()
 

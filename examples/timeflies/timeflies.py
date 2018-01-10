@@ -32,7 +32,7 @@ async def main(loop) -> None:
     try:
         while True:
             root.update()
-            await asyncio.sleep(0)
+            await asyncio.sleep(0.005)
     finally:
         for task in tasks:
             task.cancel()
