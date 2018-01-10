@@ -57,28 +57,32 @@ async def delay(seconds: float,
     seconds -- Relative time in seconds by which to shift the source
         stream.
     """
-    queue = collections.deque()
-    event = asyncio.Event()
-
-    if seconds == 0:
+    if seconds <= 0:
         async for msg in source:
             yield msg
+        return
+
+    import observer
+    ob = observer.Observer()
+    tasks = []
 
     async def _consumer():
-        async for msg in source:
-            event.set()
-            queue.append(msg)
-        event.set()
+        async def _delay(msg):
+            await asyncio.sleep(seconds)
+            print("TRANSMIGGINT:", msg)
+            await ob.send(msg)
 
+        async for msg in source:
+            tasks.append(asyncio.ensure_future(_delay(msg)))
+
+    # print("DONE")
     consumer = asyncio.ensure_future(_consumer())
     try:
-        while not consumer.done():
-            await event.wait()
-            await asyncio.sleep(seconds)
-            while queue:
-                yield queue.popleft()
-            event.clear()
+        async for msg in ob:
+            print("FORWARDING", msg)
+            yield msg
     finally:
+        await asyncio.gather(*tasks)
         consumer.cancel()
 
 
