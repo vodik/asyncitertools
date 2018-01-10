@@ -131,13 +131,15 @@ async def distinct_until_changed(source: AsyncIterator[T1]) -> AsyncIterator[T1]
     Example:
     xs = distinct_until_changed(source)
     """
-    last_msg = await source.__anext__()
-    yield last_msg
+    last_msg = object()  # sentinal
 
     async for msg in source:
-        if msg != last_msg:
-            last_msg = msg
-            yield msg
+        if msg == last_msg:
+            await asyncio.sleep(0)
+            continue
+
+        last_msg = msg
+        yield msg
 
 
 async def starts_with(value: T1,
