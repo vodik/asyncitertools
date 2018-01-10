@@ -82,23 +82,48 @@ class Observer:
         return sub
 
 
+def from_iterator(iterable):
+    observer = Observer()
+
+    async def closure():
+        try:
+            for msg in iterable:
+                await observer.send(msg)
+        except Exception as exc:
+            observer.set_exception(exc)
+        else:
+            await observer.stop()
+
+    asyncio.ensure_future(closure())
+    return observer
+
+
 def consume(generator):
     observer = Observer()
 
     async def closure():
-        await observer.feed(generator)
-        await observer.stop()
+        try:
+            async for msg in generator:
+                await observer.send(msg)
+        except Exception as exc:
+            observer.set_exception(exc)
+        else:
+            await observer.stop()
 
     asyncio.ensure_future(closure())
     return observer
 
 
 def subscribe(function):
-    subscribe = Subscription()
+    subscription = Subscription()
 
     async def closure():
-        await function(subscribe)
-        await subscribe.stop()
+        try:
+            await function(subscription)
+        except Exception as exc:
+            subscription.set_exception(exc)
+        else:
+            await subscription.stop()
 
     asyncio.ensure_future(closure())
     return subscribe
