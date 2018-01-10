@@ -69,17 +69,16 @@ async def delay(seconds: float,
     async def _consumer():
         async def _delay(msg):
             await asyncio.sleep(seconds)
-            print("TRANSMIGGINT:", msg)
             await ob.send(msg)
 
         async for msg in source:
             tasks.append(asyncio.ensure_future(_delay(msg)))
+        await asyncio.gather(*tasks)
+        ob.stop()
 
-    # print("DONE")
     consumer = asyncio.ensure_future(_consumer())
     try:
         async for msg in ob:
-            print("FORWARDING", msg)
             yield msg
     finally:
         await asyncio.gather(*tasks)

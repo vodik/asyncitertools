@@ -96,7 +96,7 @@ class Observer:
 def consume(generator):
     async def _inner():
         await observer.feed(generator)
-        observer.done()
+        observer.stop()
 
     observer = Observer()
     asyncio.ensure_future(_inner())
