@@ -57,7 +57,7 @@
          (op.filter (λ (> (len it) 2)))
          (op.debounce 0.5)
          (op.distinct-until-changed)
-         (op.map search-wikipedia)
+         (op.flat-map search-wikipedia)
          (op.subscribe (Λ (await (.send-str it result))))))
   ws)
 

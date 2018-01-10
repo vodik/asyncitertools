@@ -50,7 +50,7 @@ async def websocket_handler(request):
     xs = op.filter(lambda text: len(text) > 2, xs)
     xs = op.debounce(0.5, xs)
     xs = op.distinct_until_changed(xs)
-    xs = op.map(search_wikipedia, xs)
+    xs = op.flat_map(search_wikipedia, xs)
 
     async for result in xs:
         ws.send_str(result)

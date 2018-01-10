@@ -9,8 +9,8 @@ T1 = TypeVar("T1")
 T2 = TypeVar("T2")
 
 
-def map(mapper: Callable[[T1], Union[T2, Awaitable[T2]]],
-        source: AsyncIterator[T1]) -> AsyncIterator[T2]:
+async def map(mapper: Callable[[T1], Union[T2, Awaitable[T2]]],
+              source: AsyncIterator[T1]) -> AsyncIterator[T2]:
     """Make an async iterator that maps values.
 
     xs = map(lambda value: value * value, source)
@@ -18,22 +18,16 @@ def map(mapper: Callable[[T1], Union[T2, Awaitable[T2]]],
     Keyword arguments:
     mapper: A transform function to apply to each source item.
     """
-    async def closure(obv):
-        async def mapped_send(msg):
-            result = mapper(msg)
-            if inspect.isawaitable(result):
-                result = await result
+    async for msg in stream:
+        result = mapper(msg)
+        if inspect.isawaitable(result):
+            result = await result
 
-            await obv.send(result)
-
-        async for msg in source:
-            asyncio.ensure_future(mapped_send(msg))
-
-    return observer.subscribe(closure)
+        yield result
 
 
-async def flat_map(mapper,
-                   source: AsyncIterator[T1]) -> AsyncIterator[T2]:
+def flat_map(mapper: Callable[[T1], Union[T2, Awaitable[T2]]],
+             source: AsyncIterator[T1]) -> AsyncIterator[T2]:
     """Make an async iterator that maps values.
 
     xs = flat_map(lambda value: value * value, source)
@@ -47,8 +41,7 @@ async def flat_map(mapper,
             if inspect.isawaitable(result):
                 result = await result
 
-            async for submsg in result:
-                await obv.send(submsg)
+            await obv.send(result)
 
         async for msg in source:
             asyncio.ensure_future(mapped_send(msg))

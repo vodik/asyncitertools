@@ -19,7 +19,7 @@ async def main(loop):
         return await loop.run_in_executor(None, long_running, value)
 
     stream = op.from_iterator(range(40))
-    async for x in op.map(mapper, stream):
+    async for x in op.flat_map(mapper, stream):
         print(x)
 
 
