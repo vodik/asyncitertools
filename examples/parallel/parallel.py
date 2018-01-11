@@ -2,7 +2,6 @@ import asyncio
 from threading import current_thread
 import time
 
-import observer
 import asyncitertools as op
 
 
