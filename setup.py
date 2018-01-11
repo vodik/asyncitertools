@@ -19,7 +19,7 @@ setup(
     maintainer_email='simon@vodik.xyz',
     packages=find_packages(exclude=('tests', 'examples')),
     license='MIT',
-    url='http://github.com/vodik/aiorx',
+    url='http://github.com/vodik/asyncitertools',
     description='async generator utilities and reactive tools for Python 3.6+',
     long_description=read('README.rst'),
     tests_require=['pytest'],
