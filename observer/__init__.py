@@ -90,7 +90,7 @@ def consume(generator):
             async for msg in generator:
                 await observer.send(msg)
         except Exception as exc:
-            observer.set_exception(exc)
+            await observer.set_exception(exc)
         else:
             await observer.stop()
 
@@ -105,7 +105,7 @@ def subscribe(function):
         try:
             await function(subscription)
         except Exception as exc:
-            subscription.set_exception(exc)
+            await subscription.set_exception(exc)
         else:
             await subscription.stop()
 
