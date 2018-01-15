@@ -1,6 +1,6 @@
 (import [asyncio [ensure-future get-event-loop sleep]]
         [asyncitertools :as op]
-        [observer [Observer]]
+        [observer [Subject]]
         [tkinter [Frame Label TclError Tk]])
 
 
@@ -25,7 +25,7 @@
 
 
 (defn/a main [&optional [loop None]]
-  (setv mousemoves (Observer)
+  (setv mousemoves (Subject)
         root (Tk)
         frame (Frame :width 800 :height 600))
 

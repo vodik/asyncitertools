@@ -2,7 +2,7 @@ import asyncio
 
 
 # Borrowed from aioreactive
-class Subscription:
+class Observable:
     def __init__(self):
         self._push = asyncio.Future()
         self._pull = asyncio.Future()
@@ -54,45 +54,45 @@ class Subscription:
         return await self.wait_for_push()
 
 
-class Observer:
+class Subject:
     def __init__(self, *, loop=None):
         self._push = asyncio.Future()
-        self._subscriptions = []
+        self._observables = []
 
-    def _filter_subscriptions(self):
-        for sub in self._subscriptions:
+    def _filter_observables(self):
+        for sub in self._observables:
             if sub._push.cancelled():
                 continue
             yield sub
 
     async def send(self, msg):
-        self._subscriptions = list(self._filter_subscriptions())
-        for sub in self._subscriptions:
+        self._observables = list(self._filter_observables())
+        for sub in self._observables:
             await sub.send(msg)
 
     async def stop(self):
-        self._subscriptions = list(self._filter_subscriptions())
+        self._observables = list(self._filter_observables())
         self._push.set_result(None)
-        for sub in self._subscriptions:
+        for sub in self._observables:
             await sub.stop()
 
     async def set_exception(self, exc):
-        self._subscriptions = list(self._filter_subscriptions())
+        self._observables = list(self._filter_observables())
         self._push.set_result(exc)
-        for sub in self._subscriptions:
+        for sub in self._observables:
             await sub.set_exception(exc)
 
     def __await__(self):
         return self._push.__await__()
 
     async def __aiter__(self):
-        sub = Subscription()
-        self._subscriptions.append(sub)
-        return sub
+        obv = Observable()
+        self._observables.append(obv)
+        return obv
 
 
 def consume(generator):
-    observer = Observer()
+    observer = Subject()
 
     async def closure():
         try:
@@ -108,7 +108,7 @@ def consume(generator):
 
 
 def subscribe(function):
-    subscription = Subscription()
+    subscription = Observable()
 
     async def closure():
         try:

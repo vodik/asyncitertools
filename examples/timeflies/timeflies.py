@@ -11,7 +11,7 @@ async def position_label(label, idx, events):
 
 
 async def main(loop):
-    mousemoves = observer.Observer()
+    mousemoves = observer.Subject()
 
     root = Tk()
     root.title("asyncitertools")

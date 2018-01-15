@@ -61,7 +61,7 @@ Note that there is no provided threading support:
     import observer
 
     async def main():
-        stream = observer.Observer()
+        stream = observer.Subject()
 
         xs = stream
         xs = op.map(lambda x: x["term"].rstrip(), xs)
