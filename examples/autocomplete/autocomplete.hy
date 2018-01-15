@@ -28,6 +28,7 @@
                 "search" term
                 "format" "json"})
 
+  (print "TRYING:" term)
   (with/a [session (ClientSession)
            resp (.get session *wikipedia-url* :params params)]
     (await (.text resp))))

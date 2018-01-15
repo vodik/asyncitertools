@@ -32,28 +32,27 @@ async def search_wikipedia(term):
             return await resp.text()
 
 
+async def read_term(ws):
+    async for msg in ws:
+        if msg.type == aiohttp.WSMsgType.TEXT:
+            yield json.loads(msg.data)
+
+        elif msg.type == aiohttp.WSMsgType.ERROR:
+            print(f"ws connection closed with exception {ws.exception()}")
+            return
+
+
 async def websocket_handler(request):
     ws = web.WebSocketResponse()
     await ws.prepare(request)
 
-    async def read_ws():
-        async for msg in ws:
-            if msg.type == aiohttp.WSMsgType.TEXT:
-                yield json.loads(msg.data)
-
-            elif msg.type == aiohttp.WSMsgType.ERROR:
-                print(f"ws connection closed with exception {ws.exception()}")
-                return
-
-    xs = read_ws()
+    xs = read_term(ws)
     xs = op.map(lambda x: x["term"].rstrip(), xs)
     xs = op.filter(lambda text: len(text) > 2, xs)
     xs = op.debounce(0.5, xs)
     xs = op.distinct_until_changed(xs)
     xs = op.flat_map(search_wikipedia, xs)
-
-    async for result in xs:
-        ws.send_str(result)
+    await op.subscribe(ws.send_str, xs)
 
     return ws
 
@@ -64,23 +63,19 @@ async def index(request):
 
 
 async def init(loop):
-    port = os.environ.get("PORT", 8080)
-    host = "localhost"
     app = web.Application(loop=loop)
-    print("Starting server at port: %s" % port)
-
-    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader('.'))
     app.router.add_static('/static', "static")
     app.router.add_get('/', index)
     app.router.add_get('/ws', websocket_handler)
 
-    return app, host, port
+    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader('.'))
+    return app
 
 
 def main():
     loop = asyncio.get_event_loop()
-    app, host, port = loop.run_until_complete(init(loop))
-    web.run_app(app, host=host, port=port)
+    app = loop.run_until_complete(init(loop))
+    web.run_app(app, host="localhost", port=8080)
 
 
 if __name__ == '__main__':
