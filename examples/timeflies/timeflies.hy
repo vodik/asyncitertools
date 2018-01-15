@@ -1,27 +1,27 @@
 (import [asyncio [ensure-future get-event-loop sleep]]
-        [tkinter [Frame Label TclError Tk]]
+        [asyncitertools :as op]
         [observer [Observer]]
-        [asyncitertools :as op])
+        [tkinter [Frame Label TclError Tk]])
 
 
 (defmacro λ [&rest body]
   `(fn [it] ~@body))
 
 
-(defmacro Σ [stream &rest body]
-  `(for/a [it ~stream] ~@body))
+(defmacro λ/a [&rest body]
+  `(fn/a [it] ~@body))
 
 
 (defmacro forever [&rest body]
   `(while True ~@body))
 
 
-(defn/a position-label [label idx events]
-  (Σ (->> events
-          (op.delay (/ idx 20)))
-     (.place label
-             :x (+ it.x (* idx 10) 15)
-             :y it.y)))
+(defn position-label [label idx events]
+  (->> events
+       (op.delay (/ idx 20))
+       (op.subscribe (λ/a (.place label
+                                  :x (+ it.x (* idx 10) 15)
+                                  :y it.y)))))
 
 
 (defn/a main [&optional [loop None]]

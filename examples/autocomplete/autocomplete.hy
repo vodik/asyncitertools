@@ -7,14 +7,13 @@
 ;; * aiohttp
 ;; * aiohttp_jinja2
 
-(import [os]
-        [json]
-        [asyncio]
-        [aiohttp [ClientSession WSMsgType web]]
+(import [aiohttp [ClientSession WSMsgType web]]
         [aiohttp.web [Application WebSocketResponse]]
         [aiohttp_jinja2]
+        [asyncio [get-event-loop]]
         [asyncitertools :as op]
-        [jinja2 [FileSystemLoader]])
+        [jinja2 [FileSystemLoader]]
+        [json])
 
 
 (defmacro λ [&rest body]
@@ -34,21 +33,22 @@
     (await (.text resp))))
 
 
+(defn/a read-term [ws]
+  (for/a [msg ws]
+    (cond
+      [(= msg.type WSMsgType.TEXT)
+       (yield (json.loads msg.data))]
+      [(= msg.type WSMsgType.ERROR)
+       (print (.format "ws connection closed with exception" (.exception ws)))
+       (break)])))
+
+
 (defn/a websocket-handler [request]
   (setv ws (WebSocketResponse))
   (await (.prepare ws request))
 
-  (defn/a read-ws []
-    (for/a [msg ws]
-      (cond
-        [(= msg.type WSMsgType.TEXT)
-         (yield (json.loads msg.data))]
-        [(= msg.type WSMsgType.ERROR)
-         (print (.format "ws connection closed with exception" (.exception ws)))
-         (break)])))
-
   (await
-    (->> (read-ws)
+    (->> (read-term ws)
          (op.map (λ (.rstrip (get it "term"))))
          (op.filter (λ (> (len it) 2)))
          (op.debounce 0.5)
@@ -74,5 +74,5 @@
 
 
 (defmain [&rest args]
-  (setv loop (asyncio.get-event-loop))
+  (setv loop (get-event-loop))
   (web.run-app (init :loop loop) :host "localhost" :port 8080))

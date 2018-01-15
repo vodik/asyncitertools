@@ -5,8 +5,8 @@
         [time [sleep]])
 
 
-(defmacro Σ [stream &rest body]
-  `(for/a [it ~stream] ~@body))
+(defmacro λ/a [&rest body]
+  `(fn/a [it] ~@body))
 
 
 (defmacro with-executor [loop &rest body]
@@ -22,9 +22,9 @@
 
 
 (defn/a main [loop]
-  (Σ (->> (op.from-iterator (range 40))
-          (op.flat-map (partial mapper loop)))
-     (print it)))
+  (await (->> (op.from-iterator (range 40))
+              (op.flat-map (partial mapper loop))
+              (op.subscribe (λ/a (print it))))))
 
 
 (defmain [&rest args]
