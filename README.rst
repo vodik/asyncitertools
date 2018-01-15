@@ -58,13 +58,12 @@ Note that there is no provided threading support:
 .. code-block:: python
 
     import asyncitertools as op
-    import observer
+    from asyncitertools import Subject
 
     async def main():
-        stream = observer.Subject()
+        stream = Subject()
 
-        xs = stream
-        xs = op.map(lambda x: x["term"].rstrip(), xs)
+        xs = op.map(lambda x: x["term"].rstrip(), stream)
         xs = op.filter(lambda text: len(text) > 2, xs)
         xs = op.debounce(0.5, xs)
         xs = op.distinct_until_changed(xs)
@@ -77,4 +76,4 @@ Now events can be fed into the processing pipeline with a ``send`` call:
 
 .. code-block:: python
 
-    stream.send({"term": "Python"})
+    await stream.send({"term": "Python"})

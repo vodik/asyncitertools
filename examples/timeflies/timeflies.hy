@@ -1,6 +1,6 @@
 (import [asyncio [ensure-future get-event-loop sleep]]
         [asyncitertools :as op]
-        [observer [Subject]]
+        [asyncitertools [Subject]]
         [tkinter [Frame Label TclError Tk]])
 
 

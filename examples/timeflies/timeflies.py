@@ -1,17 +1,17 @@
 import asyncio
 from tkinter import Frame, Label, TclError, Tk
 
-import observer
 import asyncitertools as op
+from asyncitertools import Subject
 
 
 async def position_label(label, idx, events):
-    async for ev in op.delay(idx / 10, events):
+    async for ev in op.delay(idx / 20, events):
         label.place(x=ev.x + idx * 10 + 15, y=ev.y)
 
 
 async def main(loop):
-    mousemoves = observer.Subject()
+    mousemoves = Subject()
 
     root = Tk()
     root.title("asyncitertools")

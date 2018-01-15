@@ -91,7 +91,7 @@ class Subject:
         return obv
 
 
-def subscribe(function):
+def consume(function):
     observer = Observable()
 
     async def closure():

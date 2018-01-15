@@ -2,7 +2,7 @@ import asyncio
 import inspect
 from typing import Any, AsyncIterator, Awaitable, Callable, TypeVar, Union
 
-import observer
+from .observable import Observable, Subject, consume  # noqa
 
 
 class TaskSet:
@@ -67,7 +67,7 @@ def flat_map(mapper: Callable[[T1], Union[T2, Awaitable[T2]]],
             async for msg in source:
                 tasks.start(mapped_send(msg))
 
-    return observer.subscribe(closure)
+    return consume(closure)
 
 
 async def filter(predicate: Callable[[T1], Union[bool, Awaitable[bool]]],
@@ -108,7 +108,7 @@ def delay(seconds: float, source: AsyncIterator[T1]) -> AsyncIterator[T1]:
 
         await tasks.wait()
 
-    return observer.subscribe(closure)
+    return consume(closure)
 
 
 def debounce(seconds: float,
@@ -155,7 +155,7 @@ def debounce(seconds: float,
             if has_msg:
                 await obv.send(last_msg)
 
-    return observer.subscribe(closure)
+    return consume(closure)
 
 
 async def distinct_until_changed(source: AsyncIterator[T1]) -> AsyncIterator[T1]:
