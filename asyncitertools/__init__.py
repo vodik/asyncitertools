@@ -206,8 +206,9 @@ async def take(count: int,
 
 async def subscribe(callback: Callable[[T1], Awaitable[Any]],
                     source: AsyncIterator[T1]) -> None:
-    async for msg in source:
-        await callback(msg)
+    async with TaskSet() as tasks:
+        async for msg in source:
+            tasks.start(callback(msg))
 
 
 async def from_iterator(iterator):
