@@ -59,19 +59,28 @@ class Observer:
         self._push = asyncio.Future()
         self._subscriptions = []
 
+    def _filter_subscriptions(self):
+        for sub in self._subscriptions:
+            if sub._push.cancelled():
+                continue
+            yield sub
+
     async def send(self, msg):
+        self._subscriptions = list(self._filter_subscriptions())
         for sub in self._subscriptions:
             await sub.send(msg)
 
     async def stop(self):
+        self._subscriptions = list(self._filter_subscriptions())
         self._push.set_result(None)
         for sub in self._subscriptions:
             await sub.stop()
 
-    def set_exception(self, exc):
+    async def set_exception(self, exc):
+        self._subscriptions = list(self._filter_subscriptions())
         self._push.set_result(exc)
         for sub in self._subscriptions:
-            sub.set_exception(exc)
+            await sub.set_exception(exc)
 
     def __await__(self):
         return self._push.__await__()
