@@ -21,10 +21,6 @@
   `(fn [it] ~@body))
 
 
-(defmacro Λ [&rest body]
-  `(fn/a [it] ~@body))
-
-
 (def *wikipedia-url* "http://en.wikipedia.org/w/api.php")
 
 
@@ -58,7 +54,7 @@
          (op.debounce 0.5)
          (op.distinct-until-changed)
          (op.flat-map search-wikipedia)
-         (op.subscribe (Λ (await (.send-str it result))))))
+         (op.subscribe (λ (.send-str ws it)))))
   ws)
 
 
