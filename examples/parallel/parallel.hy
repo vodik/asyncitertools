@@ -1,30 +1,32 @@
 (import [asyncio [get-event-loop]]
-        [asyncitertools :as op])
+        [asyncitertools :as op]
+        [functools [partial]]
+        [threading [current-thread]]
+        [time [sleep]])
 
 
-(defmacro with-executor [&rest body]
-  `(do
-     (import [asyncio [get-event-loop]])
-     (.run-in-executor (get-event-loop) None (fn* [] ~@body))))
+(defmacro Σ [stream &rest body]
+  `(for/a [it ~stream] ~@body))
 
 
-(defn mapper [value]
-  (import [threading [current-thread]]
-          [time [sleep]])
+(defmacro with-executor [loop &rest body]
+  `(.run-in-executor loop None (fn* [] ~@body)))
 
-  (with-executor
+
+(defn mapper [loop value]
+  (with-executor loop
     (setv thread-name (. (current-thread) name))
     (print (.format "Processing {} on thread {}" value thread_name))
     (sleep 3)
     value))
 
 
-(defn/a main []
-  (setv stream (->> (op.from-iterator (range 40))
-                    (op.flat-map mapper)))
-
-  (for/a [value stream] (print value)))
+(defn/a main [loop]
+  (Σ (->> (op.from-iterator (range 40))
+          (op.flat-map (partial mapper loop)))
+     (print it)))
 
 
 (defmain [&rest args]
-  (.run-until-complete (get-event-loop) (main)))
+  (setv loop (get-event-loop))
+  (.run-until-complete loop (main loop)))
