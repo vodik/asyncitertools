@@ -8,16 +8,20 @@
   `(fn [it] ~@body))
 
 
+(defmacro Σ [stream &rest body]
+  `(for/a [it ~stream] ~@body))
+
+
 (defmacro forever [&rest body]
   `(while True ~@body))
 
 
 (defn/a position-label [label idx events]
-  (for/a [ev (->> events
-                  (op.delay (/ idx 20)))]
-    (.place label
-            :x (+ ev.x (* idx 10) 15)
-            :y ev.y)))
+  (Σ (->> events
+          (op.delay (/ idx 20)))
+     (.place label
+             :x (+ it.x (* idx 10) 15)
+             :y it.y)))
 
 
 (defn/a main [&optional [loop None]]
@@ -36,12 +40,12 @@
 
   (.pack frame)
   (try
-    (forever (.update root) (await (sleep 0.005)))
+    (forever (.update root) (await (sleep 0.0005)))
     (except [e TclError]
       (if (not (in "application has been destroyed" (. e args [0])))
           (raise)))
     (finally
-      (for [task tasks] (.cancel task))))
+      (for [task tasks] (.cancel task)))))
 
 
 (defmain [&rest args]
