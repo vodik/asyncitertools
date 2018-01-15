@@ -18,6 +18,12 @@ class TaskSet:
     def wait(self):
         return asyncio.gather(*self.pending)
 
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc_info):
+        await self.wait()
+
 
 T1 = TypeVar("T1")
 T2 = TypeVar("T2")
@@ -57,11 +63,9 @@ def flat_map(mapper: Callable[[T1], Union[T2, Awaitable[T2]]],
 
             await obv.send(result)
 
-        tasks = TaskSet()
-        async for msg in source:
-            tasks.start(mapped_send(msg))
-
-        await tasks.wait()
+        async with TaskSet() as tasks:
+            async for msg in source:
+                tasks.start(mapped_send(msg))
 
     return observer.subscribe(closure)
 
@@ -98,17 +102,17 @@ def delay(seconds: float, source: AsyncIterator[T1]) -> AsyncIterator[T1]:
             await asyncio.sleep(seconds)
             await obv.send(msg)
 
-        tasks = TaskSet()
-        async for msg in source:
-            tasks.start(delayed_send(msg))
+        async with TaskSet() as tasks:
+            async for msg in source:
+                tasks.start(delayed_send(msg))
 
         await tasks.wait()
 
     return observer.subscribe(closure)
 
 
-async def debounce(seconds: float,
-                   source: AsyncIterator[T1]) -> AsyncIterator[T1]:
+def debounce(seconds: float,
+             source: AsyncIterator[T1]) -> AsyncIterator[T1]:
     """Debounce an async iterator.
 
     Ignores values from a source stream which are followed by
@@ -121,25 +125,37 @@ async def debounce(seconds: float,
     seconds -- Duration of the throttle period for each value.
     source -- Source stream to debounce.
     """
-    last_msg: T1
-    event = asyncio.Event()
+    async def closure(obv):
+        if seconds <= 0:
+            async for msg in source:
+                await obv.send(msg)
+            return
 
-    async def _consumer():
-        nonlocal last_msg
-        async for msg in source:
-            last_msg = msg
-            event.set()
-        event.set()
+        has_msg = False
+        last_msg = None
+        index = 0
 
-    consumer = asyncio.ensure_future(_consumer())
-    try:
-        while not consumer.done():
-            await event.wait()
-            await asyncio.sleep(seconds)
-            yield last_msg
-            event.clear()
-    finally:
-        consumer.cancel()
+        async with TaskSet() as tasks:
+            async for msg in source:
+                has_msg = True
+                last_msg = msg
+                index += 1
+
+                async def debounced_send(msg, current):
+                    nonlocal has_msg, last_msg, index
+
+                    await asyncio.sleep(seconds)
+                    if has_msg and current == index:
+                        has_msg = False
+                        last_msg = msg
+                        await obv.send(msg)
+
+                tasks.start(debounced_send(msg, index))
+
+            if has_msg:
+                await obv.send(last_msg)
+
+    return observer.subscribe(closure)
 
 
 async def distinct_until_changed(source: AsyncIterator[T1]) -> AsyncIterator[T1]:
