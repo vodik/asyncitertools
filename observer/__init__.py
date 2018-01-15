@@ -60,27 +60,27 @@ class Subject:
         self._observables = []
 
     def _filter_observables(self):
-        for sub in self._observables:
-            if sub._push.cancelled():
+        for obv in self._observables:
+            if obv._push.cancelled():
                 continue
-            yield sub
+            yield obv
 
     async def send(self, msg):
         self._observables = list(self._filter_observables())
-        for sub in self._observables:
-            await sub.send(msg)
+        for obv in self._observables:
+            await obv.send(msg)
 
     async def stop(self):
         self._observables = list(self._filter_observables())
         self._push.set_result(None)
-        for sub in self._observables:
-            await sub.stop()
+        for obv in self._observables:
+            await obv.stop()
 
     async def set_exception(self, exc):
         self._observables = list(self._filter_observables())
         self._push.set_result(exc)
-        for sub in self._observables:
-            await sub.set_exception(exc)
+        for obv in self._observables:
+            await obv.set_exception(exc)
 
     def __await__(self):
         return self._push.__await__()
@@ -91,13 +91,12 @@ class Subject:
         return obv
 
 
-def consume(generator):
-    observer = Subject()
+def subscribe(function):
+    observer = Observable()
 
     async def closure():
         try:
-            async for msg in generator:
-                await observer.send(msg)
+            await function(observer)
         except Exception as exc:
             await observer.set_exception(exc)
         else:
@@ -105,18 +104,3 @@ def consume(generator):
 
     asyncio.ensure_future(closure())
     return observer
-
-
-def subscribe(function):
-    subscription = Observable()
-
-    async def closure():
-        try:
-            await function(subscription)
-        except Exception as exc:
-            await subscription.set_exception(exc)
-        else:
-            await subscription.stop()
-
-    asyncio.ensure_future(closure())
-    return subscription
