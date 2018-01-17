@@ -158,6 +158,13 @@ def debounce(seconds: float,
     return consume(closure)
 
 
+async def interval(period: int,
+                   source: AsyncIterator[T1]) -> AsyncIterator[T1]:
+    async for msg in source:
+        yield msg
+        await asyncio.sleep(period)
+
+
 async def distinct_until_changed(source: AsyncIterator[T1]) -> AsyncIterator[T1]:
     """Filter an async iterator to have continously distict values.
 
