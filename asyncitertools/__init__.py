@@ -2,7 +2,7 @@ import asyncio
 import inspect
 from typing import Any, AsyncIterator, Awaitable, Callable, TypeVar, Union
 
-from .observable import Observable, Subject, consume  # noqa
+from .observable import Subject, consume  # noqa
 
 
 class TaskSet:
@@ -55,13 +55,15 @@ def flat_map(mapper: Callable[[T1], Union[T2, Awaitable[T2]]],
     Keyword arguments:
     mapper: A transform function to apply to each source item.
     """
+
     async def closure(obv):
+
         async def mapped_send(msg):
             result = mapper(msg)
             if inspect.isawaitable(result):
                 result = await result
 
-            await obv.send(result)
+            await obv.asend(result)
 
         async with TaskSet() as tasks:
             async for msg in source:
@@ -92,15 +94,16 @@ def delay(seconds: float, source: AsyncIterator[T1]) -> AsyncIterator[T1]:
     seconds -- Relative time in seconds by which to shift the source
         stream.
     """
+
     async def closure(obv):
         if seconds <= 0:
             async for msg in source:
-                await obv.send(msg)
+                await obv.asend(msg)
             return
 
         async def delayed_send(msg):
             await asyncio.sleep(seconds)
-            await obv.send(msg)
+            await obv.asend(msg)
 
         async with TaskSet() as tasks:
             async for msg in source:
@@ -111,8 +114,7 @@ def delay(seconds: float, source: AsyncIterator[T1]) -> AsyncIterator[T1]:
     return consume(closure)
 
 
-def debounce(seconds: float,
-             source: AsyncIterator[T1]) -> AsyncIterator[T1]:
+def debounce(seconds: float, source: AsyncIterator[T1]) -> AsyncIterator[T1]:
     """Debounce an async iterator.
 
     Ignores values from a source stream which are followed by
@@ -125,10 +127,11 @@ def debounce(seconds: float,
     seconds -- Duration of the throttle period for each value.
     source -- Source stream to debounce.
     """
+
     async def closure(obv):
         if seconds <= 0:
             async for msg in source:
-                await obv.send(msg)
+                await obv.asend(msg)
             return
 
         has_msg = False
@@ -148,12 +151,12 @@ def debounce(seconds: float,
                     if has_msg and current == index:
                         has_msg = False
                         last_msg = msg
-                        await obv.send(msg)
+                        await obv.asend(msg)
 
                 tasks.start(debounced_send(msg, index))
 
             if has_msg:
-                await obv.send(last_msg)
+                await obv.asend(last_msg)
 
     return consume(closure)
 
@@ -165,7 +168,8 @@ async def interval(period: int,
         await asyncio.sleep(period)
 
 
-async def distinct_until_changed(source: AsyncIterator[T1]) -> AsyncIterator[T1]:
+async def distinct_until_changed(
+        source: AsyncIterator[T1]) -> AsyncIterator[T1]:
     """Filter an async iterator to have continously distict values.
 
     Example:
@@ -197,8 +201,7 @@ async def starts_with(value: T1,
         yield msg
 
 
-async def take(count: int,
-               source: AsyncIterator[T1]) -> AsyncIterator[T1]:
+async def take(count: int, source: AsyncIterator[T1]) -> AsyncIterator[T1]:
     """Returns a specified number of contiguous elements from an iterator."""
     if count <= 0:
         return

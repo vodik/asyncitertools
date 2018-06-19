@@ -2,7 +2,7 @@
 # Wikipedia to populate the autocomplete dropdown in the web UI. Start
 # using `python autocomplete.py` and navigate your web browser to
 # http://localhost:8080
-# 
+#
 # Requirements:
 # * aiohttp
 # * aiohttp_jinja2
@@ -22,9 +22,7 @@ async def search_wikipedia(term):
     """Search Wikipedia for a given term"""
     url = 'http://en.wikipedia.org/w/api.php'
 
-    params = {"action": 'opensearch',
-              "search": term,
-              "format": 'json'}
+    params = {"action": 'opensearch', "search": term, "format": 'json'}
 
     print("TRYING:", term)
     async with aiohttp.ClientSession() as session:
@@ -52,7 +50,9 @@ async def websocket_handler(request):
     xs = op.debounce(0.5, xs)
     xs = op.distinct_until_changed(xs)
     xs = op.flat_map(search_wikipedia, xs)
-    await op.subscribe(ws.send_str, xs)
+
+    async for msg in xs:
+        await ws.send_str(msg)
 
     return ws
 

@@ -1,106 +1,78 @@
 import asyncio
+import collections
+from collections.abc import AsyncGenerator
 
 
-# Borrowed from aioreactive
-class Observable:
-    def __init__(self):
-        self._push = asyncio.Future()
-        self._pull = asyncio.Future()
+class Subject(AsyncGenerator):
+    def __init__(self, *, loop=None):
+        if loop is None:
+            self._loop = asyncio.get_event_loop()
+        else:
+            self._loop = loop
+
+        self._push = self._loop.create_future()
+        self._pull = self._loop.create_future()
         self._awaiters = []
         self._busy = False
 
-    async def send(self, value):
+    async def asend(self, value):
         await self._serialize_access()
-        self._push.set_result(value)
+        if not self._push.done():
+            self._push.set_result(value)
         await self._wait_for_pull()
 
-    async def set_exception(self, err):
+    async def athrow(self, typ, val=None, tb=None):
         await self._serialize_access()
-        self._push.set_exception(err)
+        if not self._push.done():
+            self._push.set_exception(val or typ())
         await self._wait_for_pull()
 
-    async def stop(self):
-        await self._serialize_access()
-        self._push.set_exception(StopAsyncIteration)
-        await self._wait_for_pull()
+    async def aclose(self):
+        await self.athrow(StopAsyncIteration)
 
     async def _wait_for_pull(self):
         await self._pull
-        self._pull = asyncio.Future()
+        self._pull = self._loop.create_future()
         self._busy = False
 
     async def _serialize_access(self):
         while self._busy:
-            future = asyncio.Future()
+            future = self._loop.create_future()
             self._awaiters.append(future)
             await future
             self._awaiters.remove(future)
 
         self._busy = True
 
-    async def wait_for_push(self):
-        value = await self._push
-        self._push = asyncio.Future()
-        self._pull.set_result(True)
+    async def __aiter__(self):
+        while True:
+            try:
+                yield await self._push
+            except StopAsyncIteration:
+                return
+            finally:
+                self._push = self._loop.create_future()
+                if not self._pull.done():
+                    self._pull.set_result(True)
+                for awaiter in self._awaiters[:1]:
+                    awaiter.set_result(True)
 
-        for awaiter in self._awaiters[:1]:
-            awaiter.set_result(True)
-        return value
-
-    def __aiter__(self):
+    async def __aenter__(self):
         return self
 
-    async def __anext__(self):
-        return await self.wait_for_push()
+    async def __aexit__(self, typ, val, tb):
+        if not typ:
+            await self.aclose()
+        else:
+            await self.athrow(typ, val, tb)
 
 
-class Subject:
-    def __init__(self, *, loop=None):
-        self._push = asyncio.Future()
-        self._observables = []
-
-    def _filter_observables(self):
-        for obv in self._observables:
-            if obv._push.cancelled():
-                continue
-            yield obv
-
-    async def send(self, msg):
-        self._observables = list(self._filter_observables())
-        for obv in self._observables:
-            await obv.send(msg)
-
-    async def stop(self):
-        self._observables = list(self._filter_observables())
-        self._push.set_result(None)
-        for obv in self._observables:
-            await obv.stop()
-
-    async def set_exception(self, exc):
-        self._observables = list(self._filter_observables())
-        self._push.set_result(exc)
-        for obv in self._observables:
-            await obv.set_exception(exc)
-
-    def __await__(self):
-        return self._push.__await__()
-
-    def __aiter__(self):
-        obv = Observable()
-        self._observables.append(obv)
-        return obv
-
-
-def consume(function):
-    observer = Observable()
+def consume(wrapper):
+    observer = Subject()
 
     async def closure():
-        try:
-            await function(observer)
-        except Exception as exc:
-            await observer.set_exception(exc)
-        else:
-            await observer.stop()
+        async with observer:
+            await wrapper(observer)
 
     asyncio.ensure_future(closure())
     return observer
