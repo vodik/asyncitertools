@@ -47,7 +47,7 @@ class Observable:
             awaiter.set_result(True)
         return value
 
-    async def __aiter__(self):
+    def __aiter__(self):
         return self
 
     async def __anext__(self):
@@ -85,7 +85,7 @@ class Subject:
     def __await__(self):
         return self._push.__await__()
 
-    async def __aiter__(self):
+    def __aiter__(self):
         obv = Observable()
         self._observables.append(obv)
         return obv
