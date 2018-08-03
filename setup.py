@@ -12,7 +12,7 @@ def read(fname):
 
 setup(
     name='asyncitertools',
-    version='0.0.2',
+    version='0.0.3',
     author='Simon Gomizelj',
     author_email='simon@vodik.xyz',
     maintainer='Simon Gomizelj',
