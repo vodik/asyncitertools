@@ -1,0 +1,23 @@
+{
+    "_meta": {
+        "hash": {
+            "sha256": "dc9ea90ecdbcc0aa1497296e708bf89eb490f4e17ad2cdac296b918b0813d581"
+        },
+        "pipfile-spec": 6,
+        "requires": {},
+        "sources": [
+            {
+                "name": "pypi",
+                "url": "https://pypi.python.org/simple",
+                "verify_ssl": true
+            }
+        ]
+    },
+    "default": {
+        "asyncitertools": {
+            "editable": true,
+            "path": "."
+        }
+    },
+    "develop": {}
+}
