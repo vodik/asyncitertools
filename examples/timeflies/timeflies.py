@@ -6,39 +6,38 @@ from asyncitertools import Subject
 
 
 async def position_label(label, idx, events):
-    async for ev in op.delay(idx / 20, events):
+    async for ev in events:
         label.place(x=ev.x + idx * 10 + 15, y=ev.y)
 
 
 async def main(loop):
-    mousemoves = Subject()
+    async with Subject() as mousemoves:
+        root = Tk()
+        root.title("asyncitertools")
 
-    root = Tk()
-    root.title("asyncitertools")
+        frame = Frame(root, width=800, height=600)
+        frame.bind("<Motion>",
+                   lambda ev: asyncio.ensure_future(mousemoves.asend(ev)))
 
-    frame = Frame(root, width=800, height=600)
-    frame.bind("<Motion>", lambda ev: asyncio.ensure_future(mousemoves.send(ev)))
+        tasks = []
+        for idx, char in enumerate("TIME FLIES LIKE AN ARROW"):
+            label = Label(frame, text=char)
+            label.config({'borderwidth': 0, 'padx': 0, 'pady': 0})
 
-    tasks = []
-    for idx, char in enumerate("TIME FLIES LIKE AN ARROW"):
-        label = Label(frame, text=char)
-        label.config({'borderwidth': 0,
-                      'padx': 0,
-                      'pady': 0})
+            tasks.append(
+                asyncio.ensure_future(position_label(label, idx, mousemoves)))
 
-        tasks.append(asyncio.ensure_future(position_label(label, idx, mousemoves)))
-
-    frame.pack()
-    try:
-        while True:
-            root.update()
-            await asyncio.sleep(0.0005)
-    except TclError as e:
-        if "application has been destroyed" not in e.args[0]:
-            raise
-    finally:
-        for task in tasks:
-            task.cancel()
+        frame.pack()
+        try:
+            while True:
+                root.update()
+                await asyncio.sleep(0.0005)
+        except TclError as e:
+            if "application has been destroyed" not in e.args[0]:
+                raise
+        finally:
+            for task in tasks:
+                task.cancel()
 
 
 if __name__ == '__main__':
